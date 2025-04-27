@@ -12,6 +12,9 @@ class Solver(object):
     def __init__(self, args):
         self.args = args
 
+        # Set precision
+        self.dtype = torch.bfloat16 if args.precision == 'bfloat16' else torch.float32
+
         # Get data loaders
         self.train_loader, self.test_loader = get_loader(args)
 
@@ -20,7 +23,8 @@ class Solver(object):
                                        patch_size=4, dropout=0.1, n_classes=self.args.n_classes, 
                                        pos_embed=self.args.pos_embed, max_relative_distance=self.args.max_relative_distance)
         
-        # Push to GPU
+        # Set precision and push to GPU
+        self.model = self.model.to(dtype=self.dtype)
         if self.args.is_cuda:
             self.model = self.model.cuda()
 
@@ -50,7 +54,7 @@ class Solver(object):
         for (x, y) in loader:
             if self.args.is_cuda:
                 x = x.cuda()
-
+            x = x.to(dtype=self.dtype)
             # Avoid capturing gradients in evaluation time for faster speed
             with torch.no_grad():
                 logits = self.model(x)
@@ -107,10 +111,10 @@ class Solver(object):
             # Loop on loader
             for i, (x, y) in enumerate(self.train_loader):
 
-                # Push to GPU
+                # Push to GPU and set precision
                 if self.args.is_cuda:
                     x, y = x.cuda(), y.cuda()
-
+                x = x.to(dtype=self.dtype)
                 # Get output logits from the model 
                 logits = self.model(x)
 

@@ -56,6 +56,7 @@ if __name__ == '__main__':
     # Model Arguments
     parser.add_argument('--model_path', type=str, default='./model', help='path to store trained model')
     parser.add_argument("--load_model", type=bool, default=False, help="load saved model")
+    parser.add_argument("--precision", type=str, default='float32', choices=['float32', 'bfloat16'], help="precision for training")
 
     start_time = datetime.datetime.now()
     print("Started at " + str(start_time.strftime('%Y-%m-%d %H:%M:%S')))
