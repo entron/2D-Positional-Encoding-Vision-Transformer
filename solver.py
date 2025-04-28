@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 import matplotlib.pyplot as plt
+from contextlib import nullcontext                    # <-- added import
 from data_loader import get_loader
 from vit_model import VisionTransformer
 from sklearn.metrics import accuracy_score
@@ -23,8 +24,6 @@ class Solver(object):
                                        patch_size=4, dropout=0.1, n_classes=self.args.n_classes, 
                                        pos_embed=self.args.pos_embed, max_relative_distance=self.args.max_relative_distance)
         
-        # Set precision and push to GPU
-        self.model = self.model.to(dtype=self.dtype)
         if self.args.is_cuda:
             self.model = self.model.cuda()
 
@@ -54,10 +53,11 @@ class Solver(object):
         for (x, y) in loader:
             if self.args.is_cuda:
                 x = x.cuda()
-            x = x.to(dtype=self.dtype)
-            # Avoid capturing gradients in evaluation time for faster speed
+            device_type = 'cuda' if self.args.is_cuda else 'cpu'
+            ptdtype = self.dtype
             with torch.no_grad():
-                logits = self.model(x)
+                with (nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)):
+                    logits = self.model(x)
 
             all_labels.append(y)
             all_logits.append(logits.cpu())
@@ -114,12 +114,15 @@ class Solver(object):
                 # Push to GPU and set precision
                 if self.args.is_cuda:
                     x, y = x.cuda(), y.cuda()
-                x = x.to(dtype=self.dtype)
-                # Get output logits from the model 
-                logits = self.model(x)
+                device_type = 'cuda' if self.args.is_cuda else 'cpu'
+                ptdtype = self.dtype
 
-                # Compute training loss
-                loss = self.loss_fn(logits, y)
+                with (nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)):
+                    # Get output logits from the model 
+                    logits = self.model(x)
+
+                    # Compute training loss
+                    loss = self.loss_fn(logits, y)
 
                 # Updating the model
                 optimizer.zero_grad()
